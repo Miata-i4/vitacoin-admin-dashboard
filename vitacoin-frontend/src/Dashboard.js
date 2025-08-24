@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import config from './config';
 import './Dashboard.css';
 
 function Dashboard() {
@@ -16,9 +17,9 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       const [usersRes, transactionsRes, configsRes] = await Promise.all([
-        axios.get('http://localhost:5000/api/users'),
-        axios.get('http://localhost:5000/api/transactions'),
-        axios.get('http://localhost:5000/api/reward-configs')
+        axios.get(`${config.API_BASE_URL}/api/users`),
+        axios.get(`${config.API_BASE_URL}/api/transactions`),
+        axios.get(`${config.API_BASE_URL}/api/reward-configs`)
       ]);
       
       setUsers(usersRes.data);
@@ -85,7 +86,7 @@ function UsersTab({ users, fetchData }) {
         return;
       }
 
-      await axios.post('http://localhost:5000/api/users', newUser);
+      await axios.post(`${config.API_BASE_URL}/api/users`, newUser);
       setNewUser({ username: '', email: '' });
       fetchData();
       alert('User created successfully!');
@@ -160,7 +161,7 @@ function TransactionsTab({ transactions, fetchData }) {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/users');
+        const response = await axios.get(`${config.API_BASE_URL}/api/users`);
         setUsers(response.data);
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -179,7 +180,7 @@ function TransactionsTab({ transactions, fetchData }) {
         return;
       }
 
-      await axios.post('http://localhost:5000/api/transactions', {
+      await axios.post(`${config.API_BASE_URL}/api/transactions`, {
         userId: newTransaction.userId,
         type: newTransaction.type,
         amount: parseInt(newTransaction.amount),
@@ -287,7 +288,7 @@ function ConfigTab({ configs, fetchData }) {
       }
 
       await axios.put(
-        `http://localhost:5000/api/reward-configs/${newConfig.activityType}`,
+        `${config.API_BASE_URL}/api/reward-configs/${newConfig.activityType}`,
         {
           rewardValue: parseInt(newConfig.rewardValue),
           penaltyValue: parseInt(newConfig.penaltyValue)
@@ -368,7 +369,7 @@ function DemoTab({ fetchData }) {
 
   const initializeDemo = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/api/demo/initialize');
+      const response = await axios.post(`${config.API_BASE_URL}/api/demo/initialize`);
       alert('Demo data initialized! ' + response.data.message);
       fetchData();
       fetchDemoStats();
@@ -379,7 +380,7 @@ function DemoTab({ fetchData }) {
 
   const fetchDemoStats = async () => {
     try {
-      const response = await axios.get('http://localhost:5000/api/demo/stats');
+      const response = await axios.get(`${config.API_BASE_URL}/api/demo/stats`);
       setDemoStats(response.data);
       setRecentActivity(response.data.recentActivity || []);
     } catch (error) {
@@ -389,7 +390,7 @@ function DemoTab({ fetchData }) {
 
   const simulateActivity = async () => {
     try {
-      await axios.post('http://localhost:5000/api/demo/simulate-activity');
+      await axios.post(`${config.API_BASE_URL}/api/demo/simulate-activity`);
       fetchData();
       fetchDemoStats();
     } catch (error) {
@@ -399,7 +400,7 @@ function DemoTab({ fetchData }) {
 
   const simulatePurchase = async () => {
     try {
-      await axios.post('http://localhost:5000/api/demo/simulate-purchase');
+      await axios.post(`${config.API_BASE_URL}/api/demo/simulate-purchase`);
       fetchData();
       fetchDemoStats();
     } catch (error) {
@@ -409,8 +410,10 @@ function DemoTab({ fetchData }) {
 
   const startAutoSimulation = () => {
     if (isSimulating) {
-      clearInterval(simulationInterval);
-      setSimulationInterval(null);
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+        setSimulationInterval(null);
+      }
       setIsSimulating(false);
     } else {
       const interval = setInterval(() => {
@@ -428,10 +431,21 @@ function DemoTab({ fetchData }) {
 
   useEffect(() => {
     fetchDemoStats();
+    
     return () => {
-      if (simulationInterval) clearInterval(simulationInterval);
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+      }
     };
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (simulationInterval) {
+        clearInterval(simulationInterval);
+      }
+    };
+  }, [simulationInterval]);
 
   return (
     <div>

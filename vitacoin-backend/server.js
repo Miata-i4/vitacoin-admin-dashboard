@@ -11,7 +11,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
-app.use(cors());
+
+// Updated CORS configuration for deployment
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'https://*.vercel.app',
+    process.env.FRONTEND_URL
+  ],
+  credentials: true
+}));
 
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
@@ -40,6 +49,7 @@ app.use('/api/demo', demoRoutes);
 app.get('/', (req, res) => res.json({ 
   message: 'Vitacoin Backend API running',
   version: '1.0.0',
+  environment: process.env.NODE_ENV || 'development',
   endpoints: [
     '/api/users',
     '/api/transactions', 
@@ -52,4 +62,5 @@ app.get('/', (req, res) => res.json({
 
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
