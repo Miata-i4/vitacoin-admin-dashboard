@@ -1,0 +1,98 @@
+.dashboard {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.loading {
+  text-align: center;
+  font-size: 18px;
+  margin-top: 50px;
+}
+
+.tabs {
+  display: flex;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.tabs button {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  margin-right: 10px;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs button:hover {
+  background: #f5f5f5;
+}
+
+.tabs button.active {
+  border-bottom: 2px solid #007bff;
+  color: #007bff;
+}
+
+.tab-content {
+  padding: 20px 0;
+}
+
+.create-user, .create-transaction, .create-config {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 5px;
+  margin-bottom: 30px;
+}
+
+.create-user input, .create-transaction input, .create-transaction select, .create-config input {
+  margin: 5px 10px;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+}
+
+.create-user button, .create-transaction button, .create-config button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin: 5px;
+}
+
+.create-user button:hover, .create-transaction button:hover, .create-config button:hover {
+  background: #0056b3;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+th {
+  background: #f8f9fa;
+  font-weight: bold;
+}
+
+tr:hover {
+  background: #f5f5f5;
+}
+
+.reward {
+  background-color: #d4edda !important;
+}
+
+.penalty {
+  background-color: #f8d7da !important;
+}
