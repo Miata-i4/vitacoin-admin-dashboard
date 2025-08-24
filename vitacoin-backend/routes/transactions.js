@@ -3,68 +3,89 @@ const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 
-// Get all transactions with user details
+// GET all transactions
 router.get('/', async (req, res) => {
   try {
+    console.log('Fetching all transactions...');
     const transactions = await Transaction.find()
       .populate('userId', 'username email')
       .sort({ createdAt: -1 });
+    console.log(`Found ${transactions.length} transactions`);
     res.json(transactions);
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch transactions', details: err.message });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch transactions',
+      message: error.message 
+    });
   }
 });
 
-// Get transactions for a specific user
-router.get('/user/:userId', async (req, res) => {
-  try {
-    const transactions = await Transaction.find({ userId: req.params.userId })
-      .populate('userId', 'username email')
-      .sort({ createdAt: -1 });
-    res.json(transactions);
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to fetch user transactions', details: err.message });
-  }
-});
-
-// Create a new transaction and update user coins
+// POST create new transaction
 router.post('/', async (req, res) => {
   try {
+    console.log('Creating transaction with data:', req.body);
+    
     const { userId, type, amount, description } = req.body;
     
     // Validation
-    if (!userId || !type || amount === undefined) {
-      return res.status(400).json({ error: 'UserId, type, and amount are required' });
+    if (!userId || !type || !amount) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        message: 'userId, type, and amount are required' 
+      });
     }
     
     if (!['reward', 'penalty'].includes(type)) {
-      return res.status(400).json({ error: 'Type must be either "reward" or "penalty"' });
+      return res.status(400).json({ 
+        error: 'Invalid transaction type',
+        message: 'Type must be either "reward" or "penalty"' 
+      });
     }
     
     // Check if user exists
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: 'Invalid user ID' 
+      });
     }
     
     // Create transaction
-    const newTransaction = new Transaction({ userId, type, amount, description });
-    const savedTransaction = await newTransaction.save();
+    const transaction = new Transaction({
+      userId,
+      type,
+      amount: parseInt(amount),
+      description: description || `${type} transaction`
+    });
+    
+    const savedTransaction = await transaction.save();
     
     // Update user coins
-    const coinChange = type === 'reward' ? parseInt(amount) : -parseInt(amount);
-    user.coins += coinChange;
-    await user.save();
+    if (type === 'reward') {
+      user.coins += parseInt(amount);
+    } else {
+      user.coins = Math.max(0, user.coins - parseInt(amount)); // Don't go negative
+    }
     
-    // Populate user details for response
-    await savedTransaction.populate('userId', 'username email');
+    await user.save();
+    console.log('Transaction created and user updated:', savedTransaction);
+    
+    // Populate the response
+    const populatedTransaction = await Transaction.findById(savedTransaction._id)
+      .populate('userId', 'username email');
     
     res.status(201).json({
-      transaction: savedTransaction,
-      userNewBalance: user.coins
+      message: 'Transaction created successfully',
+      transaction: populatedTransaction
     });
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to create transaction', details: err.message });
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    res.status(400).json({ 
+      error: 'Failed to create transaction',
+      message: error.message 
+    });
   }
 });
 
