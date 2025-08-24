@@ -4,159 +4,161 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const RewardConfig = require('../models/RewardConfig');
 
-// Demo data generators
-const sampleUsers = [
-  { username: 'alice_student', email: 'alice@university.edu' },
-  { username: 'bob_employee', email: 'bob@company.com' },
-  { username: 'charlie_gamer', email: 'charlie@gaming.net' },
-  { username: 'diana_learner', email: 'diana@courses.com' },
-  { username: 'evan_shopper', email: 'evan@retail.com' }
-];
-
-const sampleActivities = [
-  { activityType: 'daily_login', rewardValue: 5, penaltyValue: 2 },
-  { activityType: 'quiz_complete', rewardValue: 25, penaltyValue: 10 },
-  { activityType: 'course_finish', rewardValue: 100, penaltyValue: 0 },
-  { activityType: 'referral', rewardValue: 50, penaltyValue: 0 },
-  { activityType: 'purchase', rewardValue: 0, penaltyValue: 0 },
-  { activityType: 'daily_goal', rewardValue: 20, penaltyValue: 5 }
-];
-
-const purchaseItems = [
-  { name: 'Coffee Voucher', cost: 15 },
-  { name: 'Movie Ticket', cost: 50 },
-  { name: 'Book Discount', cost: 30 },
-  { name: 'Premium Course', cost: 200 },
-  { name: 'Gift Card', cost: 100 }
-];
-
-// Initialize demo data
+// POST initialize demo data
 router.post('/initialize', async (req, res) => {
   try {
-    // Clear existing demo data
-    await User.deleteMany({ username: { $in: sampleUsers.map(u => u.username) } });
-    await RewardConfig.deleteMany({ activityType: { $in: sampleActivities.map(a => a.activityType) } });
-
-    // Create sample users
-    const createdUsers = await User.insertMany(sampleUsers.map(user => ({
-      ...user,
-      coins: Math.floor(Math.random() * 100) + 50 // 50-150 starting coins
-    })));
-
-    // Create reward configurations
-    await RewardConfig.insertMany(sampleActivities);
-
+    console.log('Initializing demo data...');
+    
+    // Create demo users if they don't exist
+    const demoUsers = [
+      { username: 'alice_demo', email: 'alice@vitacoin.demo', coins: 100 },
+      { username: 'bob_demo', email: 'bob@vitacoin.demo', coins: 150 },
+      { username: 'charlie_demo', email: 'charlie@vitacoin.demo', coins: 75 }
+    ];
+    
+    for (const userData of demoUsers) {
+      const existingUser = await User.findOne({ username: userData.username });
+      if (!existingUser) {
+        await User.create(userData);
+      }
+    }
+    
+    // Create demo reward configs if they don't exist
+    const demoConfigs = [
+      { activityType: 'login', rewardValue: 10, penaltyValue: 0 },
+      { activityType: 'quiz_complete', rewardValue: 25, penaltyValue: 5 },
+      { activityType: 'daily_goal', rewardValue: 50, penaltyValue: 10 }
+    ];
+    
+    for (const configData of demoConfigs) {
+      await RewardConfig.findOneAndUpdate(
+        { activityType: configData.activityType },
+        configData,
+        { upsert: true, new: true }
+      );
+    }
+    
     res.json({
-      message: 'Demo initialized successfully',
-      usersCreated: createdUsers.length,
-      configsCreated: sampleActivities.length
+      message: 'Demo data initialized successfully',
+      users: demoUsers.length,
+      configs: demoConfigs.length
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to initialize demo', details: error.message });
+    console.error('Error initializing demo:', error);
+    res.status(500).json({ 
+      error: 'Failed to initialize demo data',
+      message: error.message 
+    });
   }
 });
 
-// Generate realistic activity simulation
+// POST simulate activity
 router.post('/simulate-activity', async (req, res) => {
   try {
-    const users = await User.find({ username: { $in: sampleUsers.map(u => u.username) } });
+    const users = await User.find();
     if (users.length === 0) {
-      return res.status(400).json({ error: 'No demo users found. Initialize demo first.' });
+      return res.status(400).json({ error: 'No users found. Initialize demo data first.' });
     }
-
-    const randomUser = users[Math.floor(Math.random() * users.length)];
-    const activities = await RewardConfig.find();
-    const randomActivity = activities[Math.floor(Math.random() * activities.length)];
     
-    // 80% success rate for activities
-    const isSuccess = Math.random() > 0.2;
-    const amount = isSuccess ? randomActivity.rewardValue : randomActivity.penaltyValue;
-    const type = isSuccess ? 'reward' : 'penalty';
+    const configs = await RewardConfig.find();
+    if (configs.length === 0) {
+      return res.status(400).json({ error: 'No reward configs found. Initialize demo data first.' });
+    }
+    
+    // Pick random user and config
+    const randomUser = users[Math.floor(Math.random() * users.length)];
+    const randomConfig = configs[Math.floor(Math.random() * configs.length)];
     
     // Create transaction
-    const transaction = new Transaction({
+    const transaction = await Transaction.create({
       userId: randomUser._id,
-      type,
-      amount,
-      description: `${isSuccess ? 'Completed' : 'Failed'} ${randomActivity.activityType}`
+      type: 'reward',
+      amount: randomConfig.rewardValue,
+      description: `${randomConfig.activityType} completed`
     });
-    await transaction.save();
     
     // Update user coins
-    const coinChange = isSuccess ? amount : -amount;
-    randomUser.coins = Math.max(0, randomUser.coins + coinChange); // Prevent negative coins
+    randomUser.coins += randomConfig.rewardValue;
     await randomUser.save();
-
+    
     res.json({
-      user: randomUser.username,
-      activity: randomActivity.activityType,
-      type,
-      amount,
-      newBalance: randomUser.coins,
-      success: isSuccess
+      message: 'Activity simulated successfully',
+      transaction: transaction
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to simulate activity', details: error.message });
+    console.error('Error simulating activity:', error);
+    res.status(500).json({ 
+      error: 'Failed to simulate activity',
+      message: error.message 
+    });
   }
 });
 
-// Simulate purchase transaction
+// POST simulate purchase
 router.post('/simulate-purchase', async (req, res) => {
   try {
-    const users = await User.find({ username: { $in: sampleUsers.map(u => u.username) } });
-    const eligibleUsers = users.filter(user => user.coins >= 15); // Can afford cheapest item
-    
-    if (eligibleUsers.length === 0) {
-      return res.status(400).json({ error: 'No users with sufficient coins for purchase' });
+    const users = await User.find({ coins: { $gt: 20 } }); // Users with more than 20 coins
+    if (users.length === 0) {
+      return res.status(400).json({ error: 'No users with enough coins found.' });
     }
-
-    const randomUser = eligibleUsers[Math.floor(Math.random() * eligibleUsers.length)];
-    const affordableItems = purchaseItems.filter(item => item.cost <= randomUser.coins);
-    const randomItem = affordableItems[Math.floor(Math.random() * affordableItems.length)];
     
-    // Create purchase transaction
-    const transaction = new Transaction({
+    // Pick random user
+    const randomUser = users[Math.floor(Math.random() * users.length)];
+    const purchaseAmount = Math.floor(Math.random() * 30) + 10; // 10-40 coins
+    
+    // Create transaction
+    const transaction = await Transaction.create({
       userId: randomUser._id,
-      type: 'penalty', // Purchase is a coin deduction
-      amount: randomItem.cost,
-      description: `Purchased: ${randomItem.name}`
+      type: 'penalty',
+      amount: purchaseAmount,
+      description: 'Store purchase'
     });
-    await transaction.save();
     
     // Update user coins
-    randomUser.coins -= randomItem.cost;
+    randomUser.coins = Math.max(0, randomUser.coins - purchaseAmount);
     await randomUser.save();
-
+    
     res.json({
-      user: randomUser.username,
-      item: randomItem.name,
-      cost: randomItem.cost,
-      newBalance: randomUser.coins
+      message: 'Purchase simulated successfully',
+      transaction: transaction
     });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to simulate purchase', details: error.message });
+    console.error('Error simulating purchase:', error);
+    res.status(500).json({ 
+      error: 'Failed to simulate purchase',
+      message: error.message 
+    });
   }
 });
 
-// Get demo statistics
+// GET demo stats
 router.get('/stats', async (req, res) => {
   try {
-    const demoUsers = await User.find({ username: { $in: sampleUsers.map(u => u.username) } });
-    const demoTransactions = await Transaction.find({ 
-      userId: { $in: demoUsers.map(u => u._id) } 
-    }).populate('userId', 'username');
-
-    const stats = {
-      totalUsers: demoUsers.length,
-      totalTransactions: demoTransactions.length,
-      totalCoinsInCirculation: demoUsers.reduce((sum, user) => sum + user.coins, 0),
-      recentActivity: demoTransactions.slice(-10).reverse(),
-      topUsers: demoUsers.sort((a, b) => b.coins - a.coins).slice(0, 3)
-    };
-
-    res.json(stats);
+    const totalUsers = await User.countDocuments();
+    const totalTransactions = await Transaction.countDocuments();
+    const totalCoinsInCirculation = await User.aggregate([
+      { $group: { _id: null, total: { $sum: '$coins' } } }
+    ]);
+    
+    const topUsers = await User.find().sort({ coins: -1 }).limit(5);
+    const recentActivity = await Transaction.find()
+      .populate('userId', 'username')
+      .sort({ createdAt: -1 })
+      .limit(10);
+    
+    res.json({
+      totalUsers,
+      totalTransactions,
+      totalCoinsInCirculation: totalCoinsInCirculation[0]?.total || 0,
+      topUsers,
+      recentActivity
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to get demo stats', details: error.message });
+    console.error('Error fetching demo stats:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch demo stats',
+      message: error.message 
+    });
   }
 });
 
