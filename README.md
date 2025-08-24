@@ -30,7 +30,7 @@ npm start
 ```
 cd vitacoin-frontend
 npm install
-npm start
+node server.js
 ```
 
 ### Environment Setup
@@ -80,6 +80,7 @@ vitacoin/
 ## Built for Coursevita Hiring Hackathon (Aug 2025)
 
 This project demonstrates a complete coin credit system with administrative controls and real-world simulation capabilities, built in 9+ hours during a hackathon.
+
 
 
 
