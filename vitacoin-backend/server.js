@@ -3,45 +3,50 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
-const User = require('./models/User');
-const Transaction = require('./models/Transaction');
-const RewardConfig = require('./models/RewardConfig');
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 
-// Enhanced CORS configuration for deployment
+// Simple and permissive CORS configuration
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'https://vitacoin-admin-dashboard-frontend.vercel.app',
-    'https://*.vercel.app'
-  ],
+  origin: '*', // Allow all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }));
 
-// Enhanced MongoDB connection with connection pooling and retry logic
+// Additional CORS headers middleware (backup)
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
+// Enhanced MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
-  maxPoolSize: 10, // Maintain up to 10 socket connections
-  serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-  family: 4, // Use IPv4, skip trying IPv6
-  maxIdleTimeMS: 30000, // Close connections after 30 seconds of inactivity
-  heartbeatFrequencyMS: 10000, // Check connection every 10 seconds
+  maxPoolSize: 10,
+  serverSelectionTimeoutMS: 5000,
+  socketTimeoutMS: 45000,
+  family: 4,
+  maxIdleTimeMS: 30000,
+  heartbeatFrequencyMS: 10000,
 })
 .then(() => {
-  console.log('MongoDB connected successfully with connection pooling');
-  console.log('Connection state:', mongoose.connection.readyState);
+  console.log('MongoDB connected successfully');
 })
 .catch((err) => {
   console.error('MongoDB connection error:', err);
-  console.error('Connection string used:', process.env.MONGO_URI ? 'Set' : 'Not set');
 });
 
 // Handle MongoDB connection events
@@ -57,29 +62,21 @@ mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
 
-mongoose.connection.on('connected', () => {
-  console.log('MongoDB connected event fired');
-});
+// Route imports
+const userRoutes = require('./routes/users');
+const transactionRoutes = require('./routes/transactions');
+const rewardConfigRoutes = require('./routes/rewardConfig');
+const activityRoutes = require('./routes/activities');
+const statsRoutes = require('./routes/stats');
+const demoRoutes = require('./routes/demo');
 
-// Route imports with error handling
-try {
-  const userRoutes = require('./routes/users');
-  const transactionRoutes = require('./routes/transactions');
-  const rewardConfigRoutes = require('./routes/rewardConfig');
-  const activityRoutes = require('./routes/activities');
-  const statsRoutes = require('./routes/stats');
-  const demoRoutes = require('./routes/demo');
-
-  // Routes
-  app.use('/api/users', userRoutes);
-  app.use('/api/transactions', transactionRoutes);
-  app.use('/api/reward-configs', rewardConfigRoutes);
-  app.use('/api/activities', activityRoutes);
-  app.use('/api/stats', statsRoutes);
-  app.use('/api/demo', demoRoutes);
-} catch (error) {
-  console.error('Error loading routes:', error);
-}
+// Routes
+app.use('/api/users', userRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/reward-configs', rewardConfigRoutes);
+app.use('/api/activities', activityRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/demo', demoRoutes);
 
 // Health check endpoint
 app.get('/', (req, res) => {
@@ -110,121 +107,24 @@ app.get('/', (req, res) => {
   });
 });
 
-// Database connection check endpoint
-app.get('/api/health', async (req, res) => {
-  try {
-    const connectionState = mongoose.connection.readyState;
-    if (connectionState === 1) {
-      // Try a simple database operation
-      const userCount = await User.countDocuments();
-      res.json({
-        status: 'healthy',
-        database: 'connected',
-        userCount: userCount,
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      res.status(503).json({
-        status: 'unhealthy',
-        database: 'disconnected',
-        connectionState: connectionState,
-        timestamp: new Date().toISOString()
-      });
-    }
-  } catch (error) {
-    console.error('Health check failed:', error);
-    res.status(503).json({
-      status: 'unhealthy',
-      error: error.message,
-      timestamp: new Date().toISOString()
-    });
-  }
-});
-
 // Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', {
-    message: err.message,
-    stack: err.stack,
-    url: req.url,
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
+  console.error('Error:', err);
   
-  // Handle specific MongoDB errors
   if (err.name === 'MongooseError' || err.name === 'MongoError') {
     return res.status(503).json({ 
       error: 'Database connection error',
-      message: 'Unable to connect to database. Please try again later.',
-      type: 'database_error'
+      message: 'Unable to connect to database'
     });
   }
   
-  // Handle validation errors
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Validation error',
-      message: err.message,
-      type: 'validation_error'
-    });
-  }
-  
-  // Generic error response
   res.status(500).json({ 
     error: 'Internal server error',
-    message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message,
-    type: 'server_error'
+    message: err.message
   });
-});
-
-// Handle 404 routes
-app.use('*', (req, res) => {
-  res.status(404).json({
-    error: 'Route not found',
-    message: `Cannot ${req.method} ${req.originalUrl}`,
-    availableRoutes: [
-      'GET /',
-      'GET /api/health',
-      'GET /api/users',
-      'POST /api/users',
-      'GET /api/transactions',
-      'POST /api/transactions',
-      'GET /api/reward-configs',
-      'PUT /api/reward-configs/:activityType',
-      'POST /api/demo/initialize',
-      'POST /api/demo/simulate-activity',
-      'POST /api/demo/simulate-purchase'
-    ]
-  });
-});
-
-// Graceful shutdown handling
-process.on('SIGINT', async () => {
-  console.log('Shutting down gracefully...');
-  try {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
-    process.exit(1);
-  }
-});
-
-process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, shutting down gracefully...');
-  try {
-    await mongoose.connection.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error during shutdown:', error);
-    process.exit(1);
-  }
 });
 
 app.listen(PORT, () => {
   console.log(`Server started on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`MongoDB URI configured: ${process.env.MONGO_URI ? 'Yes' : 'No'}`);
 });
