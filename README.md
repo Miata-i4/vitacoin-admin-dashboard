@@ -20,25 +20,26 @@ A full-stack coin management system with real-time simulation capabilities.
 ## Quick Start
 
 ### Backend Setup
-
+```
 cd vitacoin-backend
 npm install
 npm start
-
+```
 
 ### Frontend Setup
-
+```
 cd vitacoin-frontend
 npm install
-npm start
-
+node server.js
+```
 
 ### Environment Setup
 Create a `.env` file in the vitacoin-backend folder with:
 
+```
 MONGO_URI=your_mongodb_connection_string
 PORT=5000
-
+```
 
 ## Demo
 
@@ -59,7 +60,7 @@ PORT=5000
 
 ## Project Structure
 
-
+```
 vitacoin/
 ├── vitacoin-backend/
 │   ├── models/          # Database schemas
@@ -74,8 +75,12 @@ vitacoin/
 │   └── package.json
 ├── .gitignore
 └── README.md
-
+```
 
 ## Built for Coursevita Hiring Hackathon (Aug 2025)
 
 This project demonstrates a complete coin credit system with administrative controls and real-world simulation capabilities, built in 9+ hours during a hackathon.
+
+
+
+
